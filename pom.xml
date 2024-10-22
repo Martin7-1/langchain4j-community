@@ -32,6 +32,9 @@
 
         <!-- LangChain4j Community integration of model provider -->
 
+        <!-- LangChain4j Community integration of document loaders -->
+        <module>document-loaders/langchain4j-community-document-loader-lark</module>
+
     </modules>
 
     <build>

@@ -44,8 +44,10 @@ class ZhipuAiStreamingPartialToolCallIT {
 
         // given
         UserMessage userMessage = UserMessage.from("2+2=?");
-        ZhipuAiChatRequestParameters parameters =
-                ZhipuAiChatRequestParameters.builder().toolStream(true).build();
+        ZhipuAiChatRequestParameters parameters = ZhipuAiChatRequestParameters.builder()
+                .toolSpecifications(calculator)
+                .toolStream(true)
+                .build();
 
         TestStreamingChatResponseHandler spyHandler = spy(new TestStreamingChatResponseHandler());
 
@@ -54,7 +56,6 @@ class ZhipuAiStreamingPartialToolCallIT {
                 ChatRequest.builder()
                         .messages(userMessage)
                         .parameters(parameters)
-                        .toolSpecifications(calculator)
                         .build(),
                 spyHandler);
 

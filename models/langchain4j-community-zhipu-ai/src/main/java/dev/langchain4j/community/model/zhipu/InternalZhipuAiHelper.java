@@ -146,7 +146,22 @@ class InternalZhipuAiHelper {
         }
 
         if (message instanceof ToolExecutionResultMessage resultMessage) {
-            return ToolMessage.builder().content(resultMessage.text()).build();
+            if (resultMessage.hasSingleText()) {
+                return ToolMessage.builder()
+                        .toolCallId(resultMessage.id())
+                        .content(resultMessage.text())
+                        .build();
+            }
+            // For multi-content (e.g., image + text), extract text content if available
+            String textContent = resultMessage.contents().stream()
+                    .filter(c -> c instanceof dev.langchain4j.data.message.TextContent)
+                    .map(c -> ((dev.langchain4j.data.message.TextContent) c).text())
+                    .findFirst()
+                    .orElse(null);
+            return ToolMessage.builder()
+                    .toolCallId(resultMessage.id())
+                    .content(textContent)
+                    .build();
         }
 
         throw illegalArgument("Unknown message type: " + message.type());

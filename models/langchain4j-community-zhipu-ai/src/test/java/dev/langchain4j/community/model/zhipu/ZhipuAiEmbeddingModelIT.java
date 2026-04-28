@@ -33,13 +33,13 @@ class ZhipuAiEmbeddingModelIT {
         // when
         Response<Embedding> response = model.embed(text);
 
-        assertThat(response.content().dimension()).isEqualTo(1024);
+        assertThat(response.content().dimension()).isEqualTo(2048);
         // then
         TokenUsage tokenUsage = response.tokenUsage();
 
-        assertThat(tokenUsage.inputTokenCount()).isEqualTo(3);
-        assertThat(tokenUsage.outputTokenCount()).isEqualTo(0);
-        assertThat(tokenUsage.totalTokenCount()).isEqualTo(3);
+        assertThat(tokenUsage.inputTokenCount()).isEqualTo(5);
+        assertThat(tokenUsage.outputTokenCount()).isZero();
+        assertThat(tokenUsage.totalTokenCount()).isEqualTo(5);
         assertThat(response.finishReason()).isNull();
     }
 
@@ -57,12 +57,12 @@ class ZhipuAiEmbeddingModelIT {
         Response<List<Embedding>> response = model.embedAll(segments);
 
         assertThat(response.content()).hasSize(11);
-        assertThat(response.content().get(0).dimension()).isEqualTo(1024);
+        assertThat(response.content().get(0).dimension()).isEqualTo(2048);
 
         TokenUsage tokenUsage = response.tokenUsage();
-        assertThat(tokenUsage.inputTokenCount()).isEqualTo(33);
-        assertThat(tokenUsage.outputTokenCount()).isEqualTo(0);
-        assertThat(tokenUsage.totalTokenCount()).isEqualTo(33);
+        assertThat(tokenUsage.inputTokenCount()).isEqualTo(67);
+        assertThat(tokenUsage.outputTokenCount()).isZero();
+        assertThat(tokenUsage.totalTokenCount()).isEqualTo(67);
 
         assertThat(response.finishReason()).isNull();
     }

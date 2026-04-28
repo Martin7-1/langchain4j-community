@@ -23,6 +23,10 @@
         {
           "code": "java.method.removed",
           "justification": "ChatCompletionRequest.Builder.from() signature removed due to unuse"
+        },
+        {
+          "code": "java.annotation.added",
+          "justification": "ImageRequest and ImageResponse classes annotated with Jackson annotations for serialization compatibility"
         }
       ]
     }

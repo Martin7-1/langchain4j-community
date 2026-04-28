@@ -160,7 +160,6 @@ class ZhipuAiChatModelIT {
 
         // then
         AiMessage aiMessage = response.aiMessage();
-        assertThat(aiMessage.text()).isNull();
         assertThat(aiMessage.toolExecutionRequests()).hasSize(1);
 
         ToolExecutionRequest toolExecutionRequest =

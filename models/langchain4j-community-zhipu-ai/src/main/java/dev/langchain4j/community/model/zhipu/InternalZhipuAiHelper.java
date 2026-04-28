@@ -38,6 +38,7 @@ import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.exception.HttpException;
+import dev.langchain4j.exception.UnsupportedFeatureException;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.model.output.FinishReason;
@@ -152,10 +153,20 @@ class InternalZhipuAiHelper {
                         .content(resultMessage.text())
                         .build();
             }
-            // For multi-content (e.g., image + text), extract text content if available
+            // ZhipuAI does not support multi-modal content (e.g., image) in tool results
+            boolean hasNonTextContent = resultMessage.contents().stream().anyMatch(c -> !(c instanceof TextContent));
+            if (hasNonTextContent) {
+                throw new UnsupportedFeatureException(
+                        "ZhipuAI does not support non-text content in tool execution results. "
+                                + "Tool '" + resultMessage.toolName() + "' returned content types: "
+                                + resultMessage.contents().stream()
+                                        .map(c -> c.getClass().getSimpleName())
+                                        .toList());
+            }
+            // Multi-text content without images - extract text content
             String textContent = resultMessage.contents().stream()
-                    .filter(c -> c instanceof dev.langchain4j.data.message.TextContent)
-                    .map(c -> ((dev.langchain4j.data.message.TextContent) c).text())
+                    .filter(c -> c instanceof TextContent)
+                    .map(c -> ((TextContent) c).text())
                     .findFirst()
                     .orElse(null);
             return ToolMessage.builder()

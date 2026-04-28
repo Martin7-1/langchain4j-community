@@ -2,7 +2,6 @@ package dev.langchain4j.community.model.zhipu;
 
 import static dev.langchain4j.community.model.zhipu.AuthorizationUtils.getToken;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.finishReasonFrom;
-import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.specificationsFrom;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toZhipuAiException;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.tokenUsageFrom;
 import static dev.langchain4j.community.model.zhipu.Json.fromJson;
@@ -42,7 +41,6 @@ import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,7 +131,6 @@ class ZhipuAiClient {
             final StringBuffer contentBuilder = new StringBuffer();
             final StringBuffer reasoningContentBuilder = new StringBuffer();
             final ToolCallBuilder toolCallBuilder = new ToolCallBuilder();
-            List<ToolExecutionRequest> specifications;
             TokenUsage tokenUsage;
             FinishReason finishReason;
             ChatCompletionResponse chatCompletionResponse;
@@ -144,14 +141,15 @@ class ZhipuAiClient {
             public void onEvent(final ServerSentEvent event) {
                 String data = event.data();
                 if ("[DONE]".equals(data)) {
+                    CompleteToolCall completeToolCall = buildCompleteToolCallIfAny();
+                    if (completeToolCall != null) {
+                        handler.onCompleteToolCall(completeToolCall);
+                    }
+
                     String text = !contentBuilder.isEmpty() ? contentBuilder.toString() : null;
                     String thinking = !reasoningContentBuilder.isEmpty() ? reasoningContentBuilder.toString() : null;
 
-                    List<ToolExecutionRequest> allRequests = new ArrayList<>();
-                    if (!isNullOrEmpty(specifications)) {
-                        allRequests.addAll(specifications);
-                    }
-                    allRequests.addAll(toolCallBuilder.allRequests());
+                    List<ToolExecutionRequest> allRequests = toolCallBuilder.allRequests();
 
                     AiMessage.Builder aiMessageBuilder =
                             AiMessage.builder().text(text).thinking(thinking);
@@ -168,11 +166,6 @@ class ZhipuAiClient {
                             .id(id)
                             .modelName(modelName)
                             .build();
-
-                    CompleteToolCall completeToolCall = buildCompleteToolCallIfAny();
-                    if (completeToolCall != null) {
-                        handler.onCompleteToolCall(completeToolCall);
-                    }
 
                     handler.onCompleteResponse(response);
                 } else {
@@ -239,14 +232,6 @@ class ZhipuAiClient {
                                             .build();
                                     handler.onPartialToolCall(partialToolCall);
                                 }
-                            }
-
-                            // fallback: if tool calls arrive all at once (non-partial), use old path
-                            if (toolCalls.stream()
-                                    .allMatch(tc -> isNotNullOrBlank(
-                                                    tc.getFunction().getArguments())
-                                            && tc.getFunction().getArguments().startsWith("{"))) {
-                                this.specifications = specificationsFrom(toolCalls);
                             }
                         }
                     } catch (Exception exception) {

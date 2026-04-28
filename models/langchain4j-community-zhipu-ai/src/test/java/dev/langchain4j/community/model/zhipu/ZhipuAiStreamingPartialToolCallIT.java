@@ -60,13 +60,13 @@ class ZhipuAiStreamingPartialToolCallIT {
                 spyHandler);
 
         // then
-        verify(spyHandler, atLeastOnce()).onPartialToolCall(any());
-
         ChatResponse response = spyHandler.get();
         AiMessage aiMessage = response.aiMessage();
         assertThat(aiMessage.toolExecutionRequests()).hasSize(1);
         ToolExecutionRequest request = aiMessage.toolExecutionRequests().get(0);
         assertThat(request.name()).isEqualTo("calculator");
         assertThat(request.arguments()).isEqualToIgnoringWhitespace("{\"first\": 2, \"second\": 2}");
+
+        verify(spyHandler, atLeastOnce()).onPartialToolCall(any());
     }
 }

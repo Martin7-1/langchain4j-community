@@ -18,6 +18,7 @@ import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.community.model.zhipu.chat.ChatCompletionModel;
 import dev.langchain4j.community.model.zhipu.chat.ChatCompletionRequest;
 import dev.langchain4j.community.model.zhipu.chat.ChatCompletionResponse;
+import dev.langchain4j.community.model.zhipu.chat.Thinking;
 import dev.langchain4j.community.model.zhipu.spi.ZhipuAiChatModelBuilderFactory;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.ChatModel;
@@ -39,7 +40,7 @@ public class ZhipuAiChatModel implements ChatModel {
     private final List<ChatModelListener> listeners;
     private final Integer maxRetries;
 
-    private final ChatRequestParameters defaultRequestParameters;
+    private final ZhipuAiChatRequestParameters defaultRequestParameters;
 
     public ZhipuAiChatModel(
             String baseUrl,
@@ -53,12 +54,15 @@ public class ZhipuAiChatModel implements ChatModel {
             Boolean logRequests,
             Boolean logResponses,
             List<ChatModelListener> listeners,
+            Boolean doSample,
+            Thinking thinking,
             Duration callTimeout,
             Duration connectTimeout,
             Duration readTimeout,
             Duration writeTimeout) {
         this.maxRetries = getOrDefault(maxRetries, 3);
         this.listeners = copy(listeners);
+
         this.client = ZhipuAiClient.builder()
                 .baseUrl(getOrDefault(baseUrl, "https://open.bigmodel.cn/"))
                 .apiKey(apiKey)
@@ -69,17 +73,20 @@ public class ZhipuAiChatModel implements ChatModel {
                 .logRequests(getOrDefault(logRequests, false))
                 .logResponses(getOrDefault(logResponses, false))
                 .build();
-        this.defaultRequestParameters = ChatRequestParameters.builder()
+
+        this.defaultRequestParameters = ZhipuAiChatRequestParameters.builder()
+                .modelName(ensureNotNull(model, "model"))
                 .temperature(temperature)
                 .topP(topP)
                 .stopSequences(stops)
-                .modelName(ensureNotNull(model, "model"))
                 .maxOutputTokens(getOrDefault(maxToken, 512))
+                .doSample(doSample)
+                .thinking(thinking)
                 .build();
     }
 
     @Override
-    public ChatRequestParameters defaultRequestParameters() {
+    public ZhipuAiChatRequestParameters defaultRequestParameters() {
         return defaultRequestParameters;
     }
 
@@ -102,6 +109,11 @@ public class ZhipuAiChatModel implements ChatModel {
                 .temperature(parameters.temperature())
                 .topP(parameters.topP())
                 .toolChoice(AUTO);
+
+        if (parameters instanceof ZhipuAiChatRequestParameters zp) {
+            requestBuilder.doSample(zp.doSample());
+            requestBuilder.thinking(zp.thinking());
+        }
 
         if (!isNullOrEmpty(toolSpecifications)) {
             requestBuilder.tools(toTools(toolSpecifications));
@@ -149,6 +161,8 @@ public class ZhipuAiChatModel implements ChatModel {
         private Boolean logRequests;
         private Boolean logResponses;
         private List<ChatModelListener> listeners;
+        private Boolean doSample;
+        private Thinking thinking;
         private Duration callTimeout;
         private Duration connectTimeout;
         private Duration readTimeout;
@@ -216,6 +230,16 @@ public class ZhipuAiChatModel implements ChatModel {
             return this;
         }
 
+        public ZhipuAiChatModelBuilder doSample(Boolean doSample) {
+            this.doSample = doSample;
+            return this;
+        }
+
+        public ZhipuAiChatModelBuilder thinking(Thinking thinking) {
+            this.thinking = thinking;
+            return this;
+        }
+
         /**
          * @deprecated This method is deprecated due to {@link ZhipuAiClient} use {@link dev.langchain4j.http.client.HttpClient} as an http client.
          */
@@ -257,6 +281,8 @@ public class ZhipuAiChatModel implements ChatModel {
                     this.logRequests,
                     this.logResponses,
                     this.listeners,
+                    this.doSample,
+                    this.thinking,
                     this.callTimeout,
                     this.connectTimeout,
                     this.readTimeout,

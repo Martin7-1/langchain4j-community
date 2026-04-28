@@ -2,6 +2,7 @@ package dev.langchain4j.community.model.zhipu;
 
 import static dev.langchain4j.internal.Exceptions.illegalArgument;
 import static dev.langchain4j.internal.JsonSchemaElementUtils.toMap;
+import static dev.langchain4j.internal.Utils.isNullOrBlank;
 import static dev.langchain4j.internal.Utils.isNullOrEmpty;
 import static dev.langchain4j.model.output.FinishReason.CONTENT_FILTER;
 import static dev.langchain4j.model.output.FinishReason.LENGTH;
@@ -37,6 +38,7 @@ import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.exception.HttpException;
+import dev.langchain4j.exception.UnsupportedFeatureException;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.model.output.FinishReason;
@@ -121,7 +123,10 @@ class InternalZhipuAiHelper {
 
         if (message instanceof AiMessage aiMessage) {
             if (!aiMessage.hasToolExecutionRequests()) {
-                return AssistantMessage.builder().content(aiMessage.text()).build();
+                return AssistantMessage.builder()
+                        .content(aiMessage.text())
+                        .reasoningContent(aiMessage.thinking())
+                        .build();
             }
             List<ToolCall> toolCallArrayList = new ArrayList<>();
             for (ToolExecutionRequest executionRequest : aiMessage.toolExecutionRequests()) {
@@ -136,12 +141,38 @@ class InternalZhipuAiHelper {
             }
             return AssistantMessage.builder()
                     .content(aiMessage.text())
+                    .reasoningContent(aiMessage.thinking())
                     .toolCalls(toolCallArrayList)
                     .build();
         }
 
         if (message instanceof ToolExecutionResultMessage resultMessage) {
-            return ToolMessage.builder().content(resultMessage.text()).build();
+            if (resultMessage.hasSingleText()) {
+                return ToolMessage.builder()
+                        .toolCallId(resultMessage.id())
+                        .content(resultMessage.text())
+                        .build();
+            }
+            // ZhipuAI does not support multi-modal content (e.g., image) in tool results
+            boolean hasNonTextContent = resultMessage.contents().stream().anyMatch(c -> !(c instanceof TextContent));
+            if (hasNonTextContent) {
+                throw new UnsupportedFeatureException(
+                        "ZhipuAI does not support non-text content in tool execution results. "
+                                + "Tool '" + resultMessage.toolName() + "' returned content types: "
+                                + resultMessage.contents().stream()
+                                        .map(c -> c.getClass().getSimpleName())
+                                        .toList());
+            }
+            // Multi-text content without images - extract text content
+            String textContent = resultMessage.contents().stream()
+                    .filter(c -> c instanceof TextContent)
+                    .map(c -> ((TextContent) c).text())
+                    .findFirst()
+                    .orElse(null);
+            return ToolMessage.builder()
+                    .toolCallId(resultMessage.id())
+                    .content(textContent)
+                    .build();
         }
 
         throw illegalArgument("Unknown message type: " + message.type());
@@ -149,11 +180,20 @@ class InternalZhipuAiHelper {
 
     static AiMessage aiMessageFrom(ChatCompletionResponse response) {
         AssistantMessage message = response.getChoices().get(0).getMessage();
+        String text = message.getContent();
+        String reasoningContent = message.getReasoningContent();
+
+        AiMessage.Builder aiMessageBuilder = AiMessage.builder()
+                .text(isNullOrBlank(text) ? null : text)
+                .thinking(isNullOrBlank(reasoningContent) ? null : reasoningContent);
+
         if (isNullOrEmpty(message.getToolCalls())) {
-            return AiMessage.from(message.getContent());
+            return aiMessageBuilder.build();
         }
 
-        return AiMessage.from(specificationsFrom(message.getToolCalls()));
+        return aiMessageBuilder
+                .toolExecutionRequests(specificationsFrom(message.getToolCalls()))
+                .build();
     }
 
     static List<ToolExecutionRequest> specificationsFrom(List<ToolCall> toolCalls) {

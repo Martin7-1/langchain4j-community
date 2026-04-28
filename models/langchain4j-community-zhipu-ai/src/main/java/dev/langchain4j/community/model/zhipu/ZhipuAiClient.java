@@ -2,11 +2,11 @@ package dev.langchain4j.community.model.zhipu;
 
 import static dev.langchain4j.community.model.zhipu.AuthorizationUtils.getToken;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.finishReasonFrom;
-import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.specificationsFrom;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toZhipuAiException;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.tokenUsageFrom;
 import static dev.langchain4j.community.model.zhipu.Json.fromJson;
 import static dev.langchain4j.http.client.HttpMethod.POST;
+import static dev.langchain4j.internal.Utils.getOrDefault;
 import static dev.langchain4j.internal.Utils.isNotNullOrBlank;
 import static dev.langchain4j.internal.Utils.isNullOrEmpty;
 
@@ -31,8 +31,12 @@ import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.http.client.log.LoggingHttpClient;
 import dev.langchain4j.http.client.sse.ServerSentEvent;
 import dev.langchain4j.http.client.sse.ServerSentEventListener;
+import dev.langchain4j.internal.ToolCallBuilder;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.CompleteToolCall;
+import dev.langchain4j.model.chat.response.PartialThinking;
+import dev.langchain4j.model.chat.response.PartialToolCall;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
@@ -125,7 +129,8 @@ class ZhipuAiClient {
                 .build();
         ServerSentEventListener eventListener = new ServerSentEventListener() {
             final StringBuffer contentBuilder = new StringBuffer();
-            List<ToolExecutionRequest> specifications;
+            final StringBuffer reasoningContentBuilder = new StringBuffer();
+            final ToolCallBuilder toolCallBuilder = new ToolCallBuilder();
             TokenUsage tokenUsage;
             FinishReason finishReason;
             ChatCompletionResponse chatCompletionResponse;
@@ -136,12 +141,24 @@ class ZhipuAiClient {
             public void onEvent(final ServerSentEvent event) {
                 String data = event.data();
                 if ("[DONE]".equals(data)) {
-                    AiMessage aiMessage;
-                    if (isNullOrEmpty(specifications)) {
-                        aiMessage = AiMessage.from(contentBuilder.toString());
-                    } else {
-                        aiMessage = AiMessage.from(specifications);
+                    CompleteToolCall completeToolCall = buildCompleteToolCallIfAny();
+                    if (completeToolCall != null) {
+                        handler.onCompleteToolCall(completeToolCall);
                     }
+
+                    String text = !contentBuilder.isEmpty() ? contentBuilder.toString() : null;
+                    String thinking = !reasoningContentBuilder.isEmpty() ? reasoningContentBuilder.toString() : null;
+
+                    List<ToolExecutionRequest> allRequests = toolCallBuilder.allRequests();
+
+                    AiMessage.Builder aiMessageBuilder =
+                            AiMessage.builder().text(text).thinking(thinking);
+
+                    if (!isNullOrEmpty(allRequests)) {
+                        aiMessageBuilder.toolExecutionRequests(allRequests);
+                    }
+
+                    AiMessage aiMessage = aiMessageBuilder.build();
                     ChatResponse response = ChatResponse.builder()
                             .aiMessage(aiMessage)
                             .tokenUsage(tokenUsage)
@@ -156,9 +173,19 @@ class ZhipuAiClient {
                         chatCompletionResponse = fromJson(data, ChatCompletionResponse.class);
                         ChatCompletionChoice zhipuChatCompletionChoice =
                                 chatCompletionResponse.getChoices().get(0);
-                        String chunk = zhipuChatCompletionChoice.getDelta().getContent();
-                        contentBuilder.append(chunk);
-                        handler.onPartialResponse(chunk);
+                        var delta = zhipuChatCompletionChoice.getDelta();
+                        String chunk = delta.getContent();
+                        if (isNotNullOrBlank(chunk)) {
+                            contentBuilder.append(chunk);
+                            handler.onPartialResponse(chunk);
+                        }
+
+                        // reasoning content
+                        String reasoningChunk = delta.getReasoningContent();
+                        if (isNotNullOrBlank(reasoningChunk)) {
+                            reasoningContentBuilder.append(reasoningChunk);
+                            handler.onPartialThinking(new PartialThinking(reasoningChunk));
+                        }
 
                         if (isNotNullOrBlank(chatCompletionResponse.getId())) {
                             id = chatCompletionResponse.getId();
@@ -176,15 +203,48 @@ class ZhipuAiClient {
                             this.finishReason = finishReasonFrom(finishReasonString);
                         }
 
-                        List<ToolCall> toolCalls =
-                                zhipuChatCompletionChoice.getDelta().getToolCalls();
+                        // tool calls
+                        List<ToolCall> toolCalls = delta.getToolCalls();
                         if (!isNullOrEmpty(toolCalls)) {
-                            this.specifications = specificationsFrom(toolCalls);
+                            for (ToolCall toolCall : toolCalls) {
+                                int index = getOrDefault(toolCall.getIndex(), 0);
+                                if (toolCallBuilder.index() != index) {
+                                    CompleteToolCall complete = buildCompleteToolCallIfAny();
+                                    if (complete != null) {
+                                        handler.onCompleteToolCall(complete);
+                                    }
+                                    toolCallBuilder.updateIndex(index);
+                                }
+
+                                String toolCallId = toolCallBuilder.updateId(toolCall.getId());
+                                String toolCallName = toolCallBuilder.updateName(
+                                        toolCall.getFunction().getName());
+                                String partialArguments = toolCall.getFunction().getArguments();
+
+                                if (isNotNullOrBlank(partialArguments)) {
+                                    toolCallBuilder.appendArguments(partialArguments);
+
+                                    PartialToolCall partialToolCall = PartialToolCall.builder()
+                                            .index(index)
+                                            .id(toolCallId)
+                                            .name(toolCallName)
+                                            .partialArguments(partialArguments)
+                                            .build();
+                                    handler.onPartialToolCall(partialToolCall);
+                                }
+                            }
                         }
                     } catch (Exception exception) {
                         handleResponseException(exception, handler);
                     }
                 }
+            }
+
+            private CompleteToolCall buildCompleteToolCallIfAny() {
+                if (toolCallBuilder.hasRequests()) {
+                    return toolCallBuilder.buildAndReset();
+                }
+                return null;
             }
 
             @Override

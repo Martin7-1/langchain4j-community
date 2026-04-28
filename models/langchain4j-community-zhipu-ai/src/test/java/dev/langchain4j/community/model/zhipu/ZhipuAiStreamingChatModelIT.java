@@ -36,12 +36,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @EnabledIfEnvironmentVariable(named = "ZHIPU_API_KEY", matches = ".+")
-public class ZhipuAiStreamingChatModelIT {
+class ZhipuAiStreamingChatModelIT {
 
     private static final String apiKey = System.getenv("ZHIPU_API_KEY");
 
     private final ZhipuAiStreamingChatModel model = ZhipuAiStreamingChatModel.builder()
-            .model(ChatCompletionModel.GLM_4_FLASH)
+            .model(ChatCompletionModel.GLM_4_7)
             .apiKey(apiKey)
             .logRequests(true)
             .logResponses(true)

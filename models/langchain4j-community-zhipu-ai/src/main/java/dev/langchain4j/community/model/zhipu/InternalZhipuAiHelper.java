@@ -2,6 +2,7 @@ package dev.langchain4j.community.model.zhipu;
 
 import static dev.langchain4j.internal.Exceptions.illegalArgument;
 import static dev.langchain4j.internal.JsonSchemaElementUtils.toMap;
+import static dev.langchain4j.internal.Utils.isNullOrBlank;
 import static dev.langchain4j.internal.Utils.isNullOrEmpty;
 import static dev.langchain4j.model.output.FinishReason.CONTENT_FILTER;
 import static dev.langchain4j.model.output.FinishReason.LENGTH;
@@ -121,7 +122,10 @@ class InternalZhipuAiHelper {
 
         if (message instanceof AiMessage aiMessage) {
             if (!aiMessage.hasToolExecutionRequests()) {
-                return AssistantMessage.builder().content(aiMessage.text()).build();
+                return AssistantMessage.builder()
+                        .content(aiMessage.text())
+                        .reasoningContent(aiMessage.thinking())
+                        .build();
             }
             List<ToolCall> toolCallArrayList = new ArrayList<>();
             for (ToolExecutionRequest executionRequest : aiMessage.toolExecutionRequests()) {
@@ -136,6 +140,7 @@ class InternalZhipuAiHelper {
             }
             return AssistantMessage.builder()
                     .content(aiMessage.text())
+                    .reasoningContent(aiMessage.thinking())
                     .toolCalls(toolCallArrayList)
                     .build();
         }
@@ -149,11 +154,20 @@ class InternalZhipuAiHelper {
 
     static AiMessage aiMessageFrom(ChatCompletionResponse response) {
         AssistantMessage message = response.getChoices().get(0).getMessage();
+        String text = message.getContent();
+        String reasoningContent = message.getReasoningContent();
+
+        AiMessage.Builder aiMessageBuilder = AiMessage.builder()
+                .text(isNullOrBlank(text) ? null : text)
+                .thinking(isNullOrBlank(reasoningContent) ? null : reasoningContent);
+
         if (isNullOrEmpty(message.getToolCalls())) {
-            return AiMessage.from(message.getContent());
+            return aiMessageBuilder.build();
         }
 
-        return AiMessage.from(specificationsFrom(message.getToolCalls()));
+        return aiMessageBuilder
+                .toolExecutionRequests(specificationsFrom(message.getToolCalls()))
+                .build();
     }
 
     static List<ToolExecutionRequest> specificationsFrom(List<ToolCall> toolCalls) {

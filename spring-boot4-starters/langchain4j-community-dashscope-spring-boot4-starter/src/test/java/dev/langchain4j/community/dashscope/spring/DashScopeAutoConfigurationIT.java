@@ -74,8 +74,7 @@ class DashScopeAutoConfigurationIT {
                     streamingChatModel.chat("What is the capital of Germany?", new StreamingChatResponseHandler() {
 
                         @Override
-                        public void onPartialResponse(String token) {
-                        }
+                        public void onPartialResponse(String token) {}
 
                         @Override
                         public void onCompleteResponse(ChatResponse response) {
@@ -83,8 +82,7 @@ class DashScopeAutoConfigurationIT {
                         }
 
                         @Override
-                        public void onError(Throwable error) {
-                        }
+                        public void onError(Throwable error) {}
                     });
                     ChatResponse response = future.get(60, SECONDS);
                     assertThat(response.aiMessage().text()).contains("Berlin");
@@ -103,8 +101,8 @@ class DashScopeAutoConfigurationIT {
                     LanguageModel languageModel = context.getBean(LanguageModel.class);
                     assertThat(languageModel).isInstanceOf(QwenLanguageModel.class);
                     assertThat(languageModel
-                            .generate("What is the capital of Germany?")
-                            .content())
+                                    .generate("What is the capital of Germany?")
+                                    .content())
                             .contains("Berlin");
 
                     assertThat(context.getBean(QwenLanguageModel.class)).isSameAs(languageModel);
@@ -125,8 +123,7 @@ class DashScopeAutoConfigurationIT {
                             "What is the capital of Germany?", new StreamingResponseHandler<>() {
 
                                 @Override
-                                public void onNext(String token) {
-                                }
+                                public void onNext(String token) {}
 
                                 @Override
                                 public void onComplete(Response<String> response) {
@@ -134,8 +131,7 @@ class DashScopeAutoConfigurationIT {
                                 }
 
                                 @Override
-                                public void onError(Throwable error) {
-                                }
+                                public void onError(Throwable error) {}
                             });
                     Response<String> response = future.get(60, SECONDS);
                     assertThat(response.content()).contains("Berlin");
@@ -249,28 +245,28 @@ class DashScopeAutoConfigurationIT {
                     assertThat(defaultParameters.translationOptions().domains())
                             .isEqualTo("The sentence is from Ali Cloud IT domain.");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .terms()
-                            .get(0)
-                            .source())
+                                    .translationOptions()
+                                    .terms()
+                                    .get(0)
+                                    .source())
                             .isEqualTo("memory");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .terms()
-                            .get(0)
-                            .target())
+                                    .translationOptions()
+                                    .terms()
+                                    .get(0)
+                                    .target())
                             .isEqualTo("内存");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .tmList()
-                            .get(0)
-                            .source())
+                                    .translationOptions()
+                                    .tmList()
+                                    .get(0)
+                                    .source())
                             .isEqualTo("memory");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .tmList()
-                            .get(0)
-                            .target())
+                                    .translationOptions()
+                                    .tmList()
+                                    .get(0)
+                                    .target())
                             .isEqualTo("内存");
                     assertThat(defaultParameters.vlHighResolutionImages()).isFalse();
                     assertThat(defaultParameters.enableThinking()).isTrue();
@@ -376,28 +372,28 @@ class DashScopeAutoConfigurationIT {
                     assertThat(defaultParameters.translationOptions().domains())
                             .isEqualTo("The sentence is from Ali Cloud IT domain.");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .terms()
-                            .get(0)
-                            .source())
+                                    .translationOptions()
+                                    .terms()
+                                    .get(0)
+                                    .source())
                             .isEqualTo("memory");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .terms()
-                            .get(0)
-                            .target())
+                                    .translationOptions()
+                                    .terms()
+                                    .get(0)
+                                    .target())
                             .isEqualTo("内存");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .tmList()
-                            .get(0)
-                            .source())
+                                    .translationOptions()
+                                    .tmList()
+                                    .get(0)
+                                    .source())
                             .isEqualTo("memory");
                     assertThat(defaultParameters
-                            .translationOptions()
-                            .tmList()
-                            .get(0)
-                            .target())
+                                    .translationOptions()
+                                    .tmList()
+                                    .get(0)
+                                    .target())
                             .isEqualTo("内存");
                     assertThat(defaultParameters.vlHighResolutionImages()).isFalse();
                     assertThat(defaultParameters.enableThinking()).isTrue();

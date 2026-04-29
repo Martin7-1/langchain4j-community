@@ -1,5 +1,7 @@
 package dev.langchain4j.community.store.embedding.vearch.spring;
 
+import static dev.langchain4j.community.store.embedding.vearch.spring.VearchEmbeddingStoreProperties.CONFIG_PREFIX;
+
 import dev.langchain4j.community.store.embedding.vearch.VearchConfig;
 import dev.langchain4j.community.store.embedding.vearch.VearchEmbeddingStore;
 import dev.langchain4j.http.client.HttpClientBuilder;

@@ -32,7 +32,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 @EnabledIfEnvironmentVariable(named = "DASHSCOPE_API_KEY", matches = ".+")
 class DashScopeAutoConfigurationIT {
     private static final String API_KEY = System.getenv("DASHSCOPE_API_KEY");
-    private static final String CHAT_MODEL = QwenModelName.QWEN_MAX;
+    private static final String CHAT_MODEL = QwenModelName.QWEN3_6_PLUS;
 
     ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
@@ -235,7 +235,7 @@ class DashScopeAutoConfigurationIT {
                     assertThat(defaultParameters.searchOptions().forcedSearch()).isFalse();
                     assertThat(defaultParameters.searchOptions().searchStrategy())
                             .isEqualTo("standard");
-                    assertThat(defaultParameters.asrOptions().language()).isEqualTo("Chinese");
+                    assertThat(defaultParameters.asrOptions().language()).isEqualTo("zh");
                     assertThat(defaultParameters.asrOptions().enableItn()).isTrue();
                     assertThat(defaultParameters.ttsOptions().voice()).isEqualTo("Cherry");
                     assertThat(defaultParameters.ttsOptions().languageType()).isEqualTo("Chinese");
@@ -362,7 +362,7 @@ class DashScopeAutoConfigurationIT {
                     assertThat(defaultParameters.searchOptions().forcedSearch()).isFalse();
                     assertThat(defaultParameters.searchOptions().searchStrategy())
                             .isEqualTo("standard");
-                    assertThat(defaultParameters.asrOptions().language()).isEqualTo("Chinese");
+                    assertThat(defaultParameters.asrOptions().language()).isEqualTo("zh");
                     assertThat(defaultParameters.asrOptions().enableItn()).isTrue();
                     assertThat(defaultParameters.ttsOptions().voice()).isEqualTo("Cherry");
                     assertThat(defaultParameters.ttsOptions().languageType()).isEqualTo("Chinese");

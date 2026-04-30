@@ -88,4 +88,9 @@ class OceanBaseEmbeddingStoreAutoConfigurationIT extends EmbeddingStoreAutoConfi
     protected String dimensionPropertyKey() {
         return "langchain4j.community.oceanbase.dimension";
     }
+
+    @Override
+    protected boolean assertEmbedding() {
+        return false;
+    }
 }

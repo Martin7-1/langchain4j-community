@@ -3,6 +3,7 @@ package dev.langchain4j.community.model.zhipu.chat;
 public enum ChatCompletionModel {
     GLM_5_1("glm-5.1"),
     GLM_5("glm-5"),
+    GLM_5V_TURBO("glm-5v-turbo"),
     GLM_4_7("glm-4.7"),
     GLM_4_7_FLASH("glm-4.7-flash"),
     GLM_4_6("glm-4.6"),

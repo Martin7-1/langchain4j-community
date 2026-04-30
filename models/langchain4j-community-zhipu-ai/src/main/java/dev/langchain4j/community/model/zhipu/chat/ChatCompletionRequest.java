@@ -27,6 +27,7 @@ public final class ChatCompletionRequest {
     private final List<String> stop;
     private final List<Tool> tools;
     private final Object toolChoice;
+    private final Object responseFormat;
     private final Boolean toolStream;
     private final Thinking thinking;
 
@@ -42,6 +43,7 @@ public final class ChatCompletionRequest {
         this.doSample = builder.doSample;
         this.tools = builder.tools;
         this.toolChoice = builder.toolChoice;
+        this.responseFormat = builder.responseFormat;
         this.toolStream = builder.toolStream;
         this.thinking = builder.thinking;
     }
@@ -94,6 +96,10 @@ public final class ChatCompletionRequest {
         return toolChoice;
     }
 
+    public Object getResponseFormat() {
+        return responseFormat;
+    }
+
     public Boolean getToolStream() {
         return toolStream;
     }
@@ -114,6 +120,7 @@ public final class ChatCompletionRequest {
         private Integer maxTokens;
         private Boolean doSample;
         private List<Tool> tools;
+        private Object responseFormat;
         private Object toolChoice;
         private Boolean toolStream;
         private Thinking thinking;
@@ -235,6 +242,22 @@ public final class ChatCompletionRequest {
 
         public Builder toolChoice(Object toolChoice) {
             this.toolChoice = toolChoice;
+            return this;
+        }
+
+        public Builder responseFormat(String responseFormat) {
+            // Only for text response format
+            if (!"text".equals(responseFormat)) {
+                throw new RuntimeException(
+                        "ResponseFormat only supports 'text' string. Please use '{'type': 'other_value'}' for other values");
+            }
+
+            this.responseFormat = responseFormat;
+            return this;
+        }
+
+        public Builder responseFormat(ResponseFormat responseFormat) {
+            this.responseFormat = responseFormat;
             return this;
         }
 

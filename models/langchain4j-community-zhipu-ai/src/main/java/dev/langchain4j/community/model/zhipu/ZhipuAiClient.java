@@ -6,6 +6,7 @@ import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toZhip
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.tokenUsageFrom;
 import static dev.langchain4j.community.model.zhipu.Json.fromJson;
 import static dev.langchain4j.http.client.HttpMethod.POST;
+import static dev.langchain4j.internal.InternalStreamingChatResponseHandlerUtils.withLoggingExceptions;
 import static dev.langchain4j.internal.Utils.getOrDefault;
 import static dev.langchain4j.internal.Utils.isNotNullOrBlank;
 import static dev.langchain4j.internal.Utils.isNullOrEmpty;
@@ -31,13 +32,16 @@ import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.http.client.log.LoggingHttpClient;
 import dev.langchain4j.http.client.sse.ServerSentEvent;
 import dev.langchain4j.http.client.sse.ServerSentEventListener;
+import dev.langchain4j.internal.ExceptionMapper;
 import dev.langchain4j.internal.ToolCallBuilder;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.CompleteToolCall;
 import dev.langchain4j.model.chat.response.PartialThinking;
 import dev.langchain4j.model.chat.response.PartialToolCall;
+import dev.langchain4j.model.chat.response.PartialToolCallContext;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.chat.response.StreamingHandle;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import java.time.Duration;
@@ -48,6 +52,18 @@ import org.slf4j.LoggerFactory;
 class ZhipuAiClient {
 
     private static final Logger log = LoggerFactory.getLogger(ZhipuAiClient.class);
+    private static final StreamingHandle NO_OP_STREAMING_HANDLE = new StreamingHandle() {
+        @Override
+        public void cancel() {
+            // Zhipu AI does not support streaming cancellation
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+    };
+
     private final Boolean logResponses;
 
     private final String apiKey;
@@ -138,38 +154,39 @@ class ZhipuAiClient {
             String id = null;
 
             @Override
-            public void onEvent(final ServerSentEvent event) {
-                String data = event.data();
-                if ("[DONE]".equals(data)) {
-                    CompleteToolCall completeToolCall = buildCompleteToolCallIfAny();
-                    if (completeToolCall != null) {
-                        handler.onCompleteToolCall(completeToolCall);
-                    }
+            public void onEvent(ServerSentEvent event) {
+                try {
+                    String data = event.data();
+                    if ("[DONE]".equals(data)) {
+                        CompleteToolCall completeToolCall = buildCompleteToolCallIfAny();
+                        if (completeToolCall != null) {
+                            handler.onCompleteToolCall(completeToolCall);
+                        }
 
-                    String text = !contentBuilder.isEmpty() ? contentBuilder.toString() : null;
-                    String thinking = !reasoningContentBuilder.isEmpty() ? reasoningContentBuilder.toString() : null;
+                        String text = !contentBuilder.isEmpty() ? contentBuilder.toString() : null;
+                        String thinking =
+                                !reasoningContentBuilder.isEmpty() ? reasoningContentBuilder.toString() : null;
 
-                    List<ToolExecutionRequest> allRequests = toolCallBuilder.allRequests();
+                        List<ToolExecutionRequest> allRequests = toolCallBuilder.allRequests();
 
-                    AiMessage.Builder aiMessageBuilder =
-                            AiMessage.builder().text(text).thinking(thinking);
+                        AiMessage.Builder aiMessageBuilder =
+                                AiMessage.builder().text(text).thinking(thinking);
 
-                    if (!isNullOrEmpty(allRequests)) {
-                        aiMessageBuilder.toolExecutionRequests(allRequests);
-                    }
+                        if (!isNullOrEmpty(allRequests)) {
+                            aiMessageBuilder.toolExecutionRequests(allRequests);
+                        }
 
-                    AiMessage aiMessage = aiMessageBuilder.build();
-                    ChatResponse response = ChatResponse.builder()
-                            .aiMessage(aiMessage)
-                            .tokenUsage(tokenUsage)
-                            .finishReason(finishReason)
-                            .id(id)
-                            .modelName(modelName)
-                            .build();
+                        AiMessage aiMessage = aiMessageBuilder.build();
+                        ChatResponse response = ChatResponse.builder()
+                                .aiMessage(aiMessage)
+                                .tokenUsage(tokenUsage)
+                                .finishReason(finishReason)
+                                .id(id)
+                                .modelName(modelName)
+                                .build();
 
-                    handler.onCompleteResponse(response);
-                } else {
-                    try {
+                        handler.onCompleteResponse(response);
+                    } else {
                         chatCompletionResponse = fromJson(data, ChatCompletionResponse.class);
                         ChatCompletionChoice zhipuChatCompletionChoice =
                                 chatCompletionResponse.getChoices().get(0);
@@ -230,13 +247,15 @@ class ZhipuAiClient {
                                             .name(toolCallName)
                                             .partialArguments(partialArguments)
                                             .build();
-                                    handler.onPartialToolCall(partialToolCall);
+                                    handler.onPartialToolCall(
+                                            partialToolCall, new PartialToolCallContext(NO_OP_STREAMING_HANDLE));
                                 }
                             }
                         }
-                    } catch (Exception exception) {
-                        handleResponseException(exception, handler);
                     }
+                } catch (Exception exception) {
+                    RuntimeException mappedException = ExceptionMapper.DEFAULT.mapException(exception);
+                    withLoggingExceptions(() -> handler.onError(mappedException));
                 }
             }
 
@@ -252,7 +271,8 @@ class ZhipuAiClient {
                 if (logResponses) {
                     log.debug("onError()", t);
                 }
-                handleResponseException(t, handler);
+                RuntimeException mappedException = ExceptionMapper.DEFAULT.mapException(t);
+                withLoggingExceptions(() -> handler.onError(mappedException));
             }
 
             @Override

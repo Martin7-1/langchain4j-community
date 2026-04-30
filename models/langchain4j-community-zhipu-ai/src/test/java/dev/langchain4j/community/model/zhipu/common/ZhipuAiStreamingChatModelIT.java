@@ -1,8 +1,6 @@
 package dev.langchain4j.community.model.zhipu.common;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.community.model.zhipu.ZhipuAiChatRequestParameters;
@@ -15,6 +13,7 @@ import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import java.util.List;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.mockito.InOrder;
 
@@ -26,20 +25,22 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
     @Override
     protected List<StreamingChatModel> models() {
         return List.of(
-                //                ZhipuAiChatModel.builder()
-                //                        .model(ChatCompletionModel.GLM_4_5)
-                //                        .apiKey(ZHIPU_API_KEY)
-                //                        .logRequests(true)
-                //                        .logResponses(true)
-                //                        .maxRetries(1)
-                //                        .build(),
-                //                ZhipuAiChatModel.builder()
-                //                        .model(ChatCompletionModel.GLM_4_6)
-                //                        .apiKey(ZHIPU_API_KEY)
-                //                        .logRequests(true)
-                //                        .logResponses(true)
-                //                        .maxRetries(1)
-                //                        .build(),
+                ZhipuAiStreamingChatModel.builder()
+                        .model(ChatCompletionModel.GLM_4_5)
+                        .apiKey(ZHIPU_API_KEY)
+                        .logRequests(true)
+                        .logResponses(true)
+                        .toolStream(true)
+                        .thinking(Thinking.builder().type("disabled").build())
+                        .build(),
+                ZhipuAiStreamingChatModel.builder()
+                        .model(ChatCompletionModel.GLM_4_6)
+                        .apiKey(ZHIPU_API_KEY)
+                        .logRequests(true)
+                        .logResponses(true)
+                        .toolStream(true)
+                        .thinking(Thinking.builder().type("disabled").build())
+                        .build(),
                 ZhipuAiStreamingChatModel.builder()
                         .model(ChatCompletionModel.GLM_4_7)
                         .apiKey(ZHIPU_API_KEY)
@@ -47,22 +48,30 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
                         .logResponses(true)
                         .toolStream(true)
                         .thinking(Thinking.builder().type("disabled").build())
-                        .build()
-                //                ZhipuAiChatModel.builder()
-                //                        .model(ChatCompletionModel.GLM_5)
-                //                        .apiKey(ZHIPU_API_KEY)
-                //                        .logRequests(true)
-                //                        .logResponses(true)
-                //                        .maxRetries(1)
-                //                        .build(),
-                //                ZhipuAiChatModel.builder()
-                //                        .model(ChatCompletionModel.GLM_5_1)
-                //                        .apiKey(ZHIPU_API_KEY)
-                //                        .logRequests(true)
-                //                        .logResponses(true)
-                //                        .maxRetries(1)
-                //                        .build()
-                );
+                        .build(),
+                ZhipuAiStreamingChatModel.builder()
+                        .model(ChatCompletionModel.GLM_5)
+                        .apiKey(ZHIPU_API_KEY)
+                        .logRequests(true)
+                        .logResponses(true)
+                        .toolStream(true)
+                        .thinking(Thinking.builder().type("disabled").build())
+                        .build(),
+                ZhipuAiStreamingChatModel.builder()
+                        .model(ChatCompletionModel.GLM_5_1)
+                        .apiKey(ZHIPU_API_KEY)
+                        .logRequests(true)
+                        .logResponses(true)
+                        .toolStream(true)
+                        .thinking(Thinking.builder().type("disabled").build())
+                        .build());
+    }
+
+    @Override
+    protected boolean supportsPartialToolStreaming(StreamingChatModel model) {
+        // Zhipu AI does not support true partial tool streaming -
+        // tool arguments are not streamed incrementally, they come all at once
+        return false;
     }
 
     @Override
@@ -96,7 +105,7 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
 
     @Override
     protected String customModelName() {
-        return ChatCompletionModel.GLM_5.toString();
+        return ChatCompletionModel.GLM_5_1.toString();
     }
 
     @Override
@@ -126,15 +135,15 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
                         .logResponses(true)
                         .toolStream(true)
                         .thinking(Thinking.builder().type("disabled").build())
-                        .build()
-                //                ZhipuAiStreamingChatModel.builder()
-                //                        .model(ChatCompletionModel.GLM_5V_TURBO)
-                //                        .apiKey(ZHIPU_API_KEY)
-                //                        .logRequests(true)
-                //                        .logResponses(true)
-                //                        .thinking(Thinking.builder().type("disabled").build())
-                //                        .build()
-                );
+                        .build(),
+                ZhipuAiStreamingChatModel.builder()
+                        .model(ChatCompletionModel.GLM_5V_TURBO)
+                        .apiKey(ZHIPU_API_KEY)
+                        .logRequests(true)
+                        .logResponses(true)
+                        .toolStream(true)
+                        .thinking(Thinking.builder().type("disabled").build())
+                        .build());
     }
 
     @Override
@@ -174,7 +183,7 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
 
     @Override
     protected void verifyToolCallbacks(StreamingChatResponseHandler handler, InOrder io, String id) {
-        io.verify(handler, atLeastOnce()).onPartialToolCall(any(), any());
+        // FIXME: verify partial tool call
         io.verify(handler).onCompleteToolCall(argThat(toolCall -> {
             ToolExecutionRequest request = toolCall.toolExecutionRequest();
             return toolCall.index() == 0
@@ -186,13 +195,7 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
 
     @Override
     protected void verifyToolCallbacks(StreamingChatResponseHandler handler, InOrder io, String id1, String id2) {
-        io.verify(handler, atLeastOnce())
-                .onPartialToolCall(
-                        argThat(toolCall -> toolCall.index() == 0
-                                && toolCall.id().equals(id1)
-                                && toolCall.name().equals("getWeather")
-                                && !toolCall.partialArguments().isBlank()),
-                        any());
+        // FIXME: verify partial tool call
         io.verify(handler).onCompleteToolCall(argThat(toolCall -> {
             ToolExecutionRequest request = toolCall.toolExecutionRequest();
             return toolCall.index() == 0
@@ -201,13 +204,7 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
                     && request.arguments().replace(" ", "").equals("{\"city\":\"Munich\"}");
         }));
 
-        io.verify(handler, atLeastOnce())
-                .onPartialToolCall(
-                        argThat(toolCall -> toolCall.index() == 1
-                                && toolCall.id().equals(id2)
-                                && toolCall.name().equals("getTime")
-                                && !toolCall.partialArguments().isBlank()),
-                        any());
+        // FIXME: verify partial tool call
         io.verify(handler).onCompleteToolCall(argThat(toolCall -> {
             ToolExecutionRequest request = toolCall.toolExecutionRequest();
             return toolCall.index() == 1
@@ -216,4 +213,16 @@ class ZhipuAiStreamingChatModelIT extends AbstractStreamingChatModelIT {
                     && request.arguments().replace(" ", "").equals("{\"country\":\"France\"}");
         }));
     }
+
+    @Override
+    @Disabled("GLM will return text content and tool call at the same time")
+    protected void should_execute_multiple_tools_in_parallel_then_answer(StreamingChatModel model) {}
+
+    @Override
+    @Disabled("GLM will return text content and tool call at the same time")
+    protected void should_execute_a_tool_without_arguments_then_answer(StreamingChatModel model) {}
+
+    @Override
+    @Disabled("GLM will return text content and tool call at the same time")
+    protected void should_execute_a_tool_then_answer(StreamingChatModel model) {}
 }

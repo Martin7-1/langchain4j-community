@@ -99,6 +99,7 @@
 
         <!-- Spring Boot Starters -->
         <module>spring-boot-starters</module>
+        <module>spring-boot4-starters</module>
 
     </modules>
 

@@ -1,8 +1,9 @@
 package dev.langchain4j.community.model.zhipu;
 
+import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toToolChoice;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toTools;
 import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toZhipuAiMessages;
-import static dev.langchain4j.community.model.zhipu.chat.ToolChoiceMode.AUTO;
+import static dev.langchain4j.community.model.zhipu.InternalZhipuAiHelper.toZhipuResponseFormat;
 import static dev.langchain4j.internal.Utils.copy;
 import static dev.langchain4j.internal.Utils.getOrDefault;
 import static dev.langchain4j.internal.Utils.isNullOrEmpty;
@@ -19,6 +20,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import java.time.Duration;
 import java.util.List;
@@ -35,6 +37,7 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
             Double temperature,
             Double topP,
             List<String> stops,
+            ResponseFormat responseFormat,
             String model,
             Integer maxToken,
             Boolean logRequests,
@@ -65,7 +68,8 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
                 .temperature(temperature)
                 .topP(topP)
                 .stopSequences(stops)
-                .maxOutputTokens(getOrDefault(maxToken, 512))
+                .responseFormat(responseFormat)
+                .maxOutputTokens(maxToken)
                 .doSample(doSample)
                 .toolStream(toolStream)
                 .thinking(thinking)
@@ -93,10 +97,10 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
                 .messages(toZhipuAiMessages(messages))
                 .maxTokens(parameters.maxOutputTokens())
                 .stop(parameters.stopSequences())
+                .responseFormat(toZhipuResponseFormat(request.responseFormat()))
                 .stream(true)
                 .temperature(parameters.temperature())
-                .topP(parameters.topP())
-                .toolChoice(AUTO);
+                .topP(parameters.topP());
 
         if (parameters instanceof ZhipuAiChatRequestParameters zp) {
             requestBuilder.doSample(zp.doSample());
@@ -106,6 +110,7 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
 
         if (!isNullOrEmpty(toolSpecifications)) {
             requestBuilder.tools(toTools(toolSpecifications));
+            requestBuilder.toolChoice(toToolChoice(parameters.toolChoice()));
         }
 
         ChatCompletionRequest completionRequest = requestBuilder.build();
@@ -128,6 +133,7 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
         private Double temperature;
         private Double topP;
         private List<String> stops;
+        private ResponseFormat responseFormat;
         private String model;
         private Integer maxToken;
         private Boolean logRequests;
@@ -173,6 +179,11 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
 
         public ZhipuAiStreamingChatModelBuilder stops(List<String> stops) {
             this.stops = stops;
+            return this;
+        }
+
+        public ZhipuAiStreamingChatModelBuilder responseFormat(ResponseFormat responseFormat) {
+            this.responseFormat = responseFormat;
             return this;
         }
 
@@ -246,6 +257,7 @@ public class ZhipuAiStreamingChatModel implements StreamingChatModel {
                     this.temperature,
                     this.topP,
                     this.stops,
+                    this.responseFormat,
                     this.model,
                     this.maxToken,
                     this.logRequests,
